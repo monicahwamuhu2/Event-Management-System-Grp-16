@@ -1,9 +1,11 @@
-import './App.css';
+import AuthPage from './pages/auth/AuthPage';
+import ThemeToggle from './components/ThemeToggle';
 
 function App() {
   return (
-    <div className="App w-screen h-screen flex justify-center items-center">
-     <h1 className='text-gray-700'> WELCOME TO EVENT PRO! </h1>
+    <div className="App w-screen h-screen bg-gray-300 dark:bg-gray-900 dark:text-white transition-colors duration-300">     
+      <AuthPage />
+      <ThemeToggle />
     </div>
   );
 }
