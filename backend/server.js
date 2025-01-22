@@ -7,16 +7,29 @@ const axios = require('axios');
 const moment = require('moment');
 require('dotenv').config();
 
+// Check if DATABASE_URL is defined and use it, else fall back to the previous method
 const { Pool } = require('pg');
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT, // Default PostgreSQL port is 5432
-});
+let pool;
+
+if (process.env.DATABASE_URL) {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+} else {
+  pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT, // Default PostgreSQL port is 5432
+  });
+}
 
 module.exports = pool;
+
 
 // Initialize express
 const app = express();
@@ -65,6 +78,21 @@ async function generateToken() {
     throw new Error('Failed to generate token');
   }
 }
+
+// Test database connection
+app.get('/api/test-db', async (req, res) => {
+  try {
+    // Perform a simple query to check if the connection works
+    const result = await pool.query('SELECT NOW()');  // This will return the current timestamp
+    res.status(200).json({
+      message: 'Database connected successfully!',
+      data: result.rows[0],  // This should return the current date and time from the database
+    });
+  } catch (error) {
+    console.error('Error connecting to the database:', error);
+    res.status(500).json({ error: 'Failed to connect to the database', details: error.message });
+  }
+});
 
 // User registration
 app.post('/api/users/register', async (req, res) => {
