@@ -3,28 +3,20 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const db = require('./db');
 const axios = require('axios'); 
-const moment = require('moment'); 
-const mysql = require('mysql2');
+const moment = require('moment');
 require('dotenv').config();
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
+const { Pool } = require('pg');
+const pool = new Pool({
   user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
   database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT, // Default PostgreSQL port is 5432
 });
 
-db.connect((err) => {
-  if (err) {
-    console.error('Error connecting to MySQL:', err);
-    process.exit(1);
-  } else {
-    console.log('Connected to MySQL!');
-  }
-});
-
+module.exports = pool;
 
 // Initialize express
 const app = express();
