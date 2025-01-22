@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const axios = require('axios'); 
+const axios = require('axios');
 const moment = require('moment');
 require('dotenv').config();
 
@@ -30,12 +30,10 @@ if (process.env.DATABASE_URL) {
 
 module.exports = pool;
 
-
 // Initialize express
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// M-Pesa Configuration
 // M-Pesa Configuration
 const CONSUMER_KEY = process.env.CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.CONSUMER_SECRET;
@@ -79,32 +77,17 @@ async function generateToken() {
   }
 }
 
-// Test database connection
-app.get('/api/test-db', async (req, res) => {
-  try {
-    // Perform a simple query to check if the connection works
-    const result = await pool.query('SELECT NOW()');  // This will return the current timestamp
-    res.status(200).json({
-      message: 'Database connected successfully!',
-      data: result.rows[0],  // This should return the current date and time from the database
-    });
-  } catch (error) {
-    console.error('Error connecting to the database:', error);
-    res.status(500).json({ error: 'Failed to connect to the database', details: error.message });
-  }
-});
-
 // User registration
 app.post('/api/users/register', async (req, res) => {
   const { user_name, user_email, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
 
   try {
-    const [result] = await db.query(
-      'INSERT INTO users (user_name, user_email, password) VALUES (?, ?, ?)',
+    const result = await pool.query(
+      'INSERT INTO users (user_name, user_email, password) VALUES ($1, $2, $3) RETURNING user_id',
       [user_name, user_email, hashedPassword]
     );
-    res.status(201).json({ message: 'User registered successfully!', userId: result.insertId });
+    res.status(201).json({ message: 'User registered successfully!', userId: result.rows[0].user_id });
   } catch (error) {
     res.status(500).json({ error: 'Failed to register user.', details: error.message });
   }
@@ -115,13 +98,13 @@ app.post('/api/users/login', async (req, res) => {
   const { user_email, password } = req.body;
 
   try {
-    const [rows] = await db.query('SELECT * FROM users WHERE user_email = ?', [user_email]);
+    const result = await pool.query('SELECT * FROM users WHERE user_email = $1', [user_email]);
 
-    if (rows.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const user = rows[0];
+    const user = result.rows[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -136,7 +119,7 @@ app.post('/api/users/login', async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        id: user.id,
+        id: user.user_id,
         name: user.user_name,
         email: user.user_email,
       },
@@ -150,8 +133,8 @@ app.post('/api/users/login', async (req, res) => {
 // Fetch all events
 app.get('/api/events', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM events');
-    res.status(200).json(rows);
+    const result = await pool.query('SELECT * FROM events');
+    res.status(200).json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch events.', details: error.message });
   }
@@ -162,13 +145,13 @@ app.get('/api/events/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query('SELECT * FROM events WHERE id = ?', [id]);
+    const result = await pool.query('SELECT * FROM events WHERE id = $1', [id]);
 
-    if (rows.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Event not found.' });
     }
 
-    res.status(200).json(rows[0]);
+    res.status(200).json(result.rows[0]);
   } catch (error) {
     console.error('Error fetching event:', error);
     res.status(500).json({ error: 'Failed to fetch event details.', details: error.message });
@@ -189,12 +172,12 @@ app.post('/api/events', async (req, res) => {
   } = req.body;
 
   try {
-    const [result] = await db.query(
+    const result = await pool.query(
       `INSERT INTO events (user_id, event_title, event_description, event_start_date, event_end_date, event_location, event_price, image_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [user_id, event_title, event_description, event_start_date, event_end_date, event_location, event_price, image_url]
     );
-    res.status(201).json({ message: 'Event created successfully!', eventId: result.insertId });
+    res.status(201).json({ message: 'Event created successfully!', eventId: result.rows[0].id });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create event.', details: error.message });
   }
